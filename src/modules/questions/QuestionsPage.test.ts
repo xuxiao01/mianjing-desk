@@ -150,9 +150,13 @@ describe('紧凑题库的查询与分页', () => {
     document.querySelector<HTMLButtonElement>('.n-drawer .n-base-close')!.click();
     await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/reading'));
     expect(router.currentRoute.value.query).toEqual(query);
-    expect(document.querySelector<HTMLAnchorElement>('.reading-link')!.href).toContain(
-      '/mianjing/questions?',
+    const returnLink = document.querySelector<HTMLAnchorElement>('.reading-link')!;
+    expect(returnLink.getAttribute('href')).toBe(
+      router.resolve({ path: '/questions', query }).href,
     );
+    returnLink.click();
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/questions'));
+    expect(router.currentRoute.value.query).toEqual(query);
   });
   it.each(['/questions', '/reading'])(
     '%s 高亮标题和知识点，命中内外点击均保留查询进入详情',

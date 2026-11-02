@@ -5,7 +5,7 @@ import globals from 'globals';
 import prettier from 'eslint-config-prettier';
 
 export default ts.config(
-  { ignores: ['dist/**', 'coverage/**', 'node_modules/**'] },
+  { ignores: ['dist/**', '.release/**', 'coverage/**', 'node_modules/**'] },
   js.configs.recommended,
   ...ts.configs.recommended,
   ...vue.configs['flat/recommended'],

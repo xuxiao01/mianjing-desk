@@ -70,7 +70,6 @@ const route = useRoute(),
 const immersive = computed(() => route.meta.immersive === true);
 const basePath = computed(() => (immersive.value ? '/reading' : '/questions'));
 const readingHref = computed(() => router.resolve({ path: '/reading', query: route.query }).href);
-const normalHref = computed(() => router.resolve({ path: '/questions', query: route.query }).href);
 const selectedId = computed(() => (typeof route.params.id === 'string' ? route.params.id : ''));
 const filters = computed<QuestionFilters>(() => {
   const get = (key: string) =>
@@ -366,7 +365,11 @@ const columns = computed<DataTableColumns<Question>>(() => [
     <NDialogProvider>
       <div class="questions-page">
         <PageHeading :title="immersive ? '沉浸题库' : '我的题库'">
-          <RouterLink v-if="immersive" :to="normalHref" class="reading-link">
+          <RouterLink
+            v-if="immersive"
+            :to="{ path: '/questions', query: route.query }"
+            class="reading-link"
+          >
             <ArrowLeft :size="16" aria-hidden="true" />返回题库
           </RouterLink>
           <a
