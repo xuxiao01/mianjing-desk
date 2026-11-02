@@ -2,15 +2,20 @@ import { createRouter, createWebHistory } from 'vue-router';
 export const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    {
+      path: '/login',
+      component: () => import('@/modules/auth/LoginPage.vue'),
+      meta: { title: '登录', public: true },
+    },
     { path: '/', redirect: '/questions' },
     {
       path: '/questions/:id?',
-      component: () => import('@/modules/questions/QuestionsPage.vue'),
+      component: () => import('@/modules/cloud/QuestionsPage.vue'),
       meta: { title: '我的题库' },
     },
     {
       path: '/reading/:id?',
-      component: () => import('@/modules/questions/QuestionsPage.vue'),
+      component: () => import('@/modules/cloud/QuestionsPage.vue'),
       meta: { title: '沉浸题库', immersive: true },
     },
     // Keep old bookmarks usable without exposing the removed pages.
@@ -18,8 +23,8 @@ export const router = createRouter({
     { path: '/reviews', redirect: () => ({ path: '/questions', query: {}, hash: '' }) },
     {
       path: '/settings',
-      component: () => import('@/modules/settings/SettingsPage.vue'),
-      meta: { title: '数据管理' },
+      component: () => import('@/modules/cloud/SettingsPage.vue'),
+      meta: { title: '数据管理', admin: true },
     },
     {
       path: '/:pathMatch(.*)*',

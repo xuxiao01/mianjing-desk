@@ -1,14 +1,16 @@
 # 前端部署与回滚
 
-正式地址：<https://xuxiaoapi.online/mianjing/>。使用现有服务器、Nginx 和证书，静态部署，无 Node 服务、数据库或云同步。
+正式地址：<https://xuxiaoapi.online/mianjing/>。使用现有服务器、Nginx 和证书，前端为静态部署，后端独立运行。
+
+当前版本接入真实 API；发布顺序为先上线独立后端并验证，再合并前端 main。前端部署前会检查后端就绪状态、接口版本及游客读取权限；未通过时不会替换现有站点。
 
 ## 本地与生产路径
 
 - `pnpm dev` 默认使用 `/`，保持本地 5173 / 5174 的地址。
-- `.env.production` 设置 `VITE_APP_BASE=/mianjing/` 和 `VITE_DATA_SOURCE=mock`。`pnpm build` 的产物只适用于该子路径；其他部署前缀需同时调整该变量与 Nginx。
+- `.env.production` 设置 `VITE_APP_BASE=/mianjing/` 和 `VITE_DATA_SOURCE=api`。`pnpm build` 的产物只适用于该子路径；其他部署前缀需同时调整该变量与 Nginx。
 - Router、图标和沉浸链接使用同一基础路径。线上刷新题库、沉浸页、详情和数据管理均由 Nginx 回退至应用入口。
-- `VITE_API_BASE_URL` 仍为 `/api`，本次不改代理、不启用 API 模式，不影响已有后端。
-- 本机地址和线上域名使用独立 localStorage。先在本地「数据管理」导出 JSON，再在线上导入；不要通过重置操作迁移数据。重新部署不会清理浏览器数据。
+- `VITE_API_BASE_URL` 为同源 `/api`；发布前确认 `/api/mianjing` 路由及管理员／游客认证已可用。
+- 新版本使用服务器数据，只新增面经专属 Token 存储。旧本地业务数据不上传、不删除，也不提供导入或重置；重新部署不会清理浏览器原有数据。
 
 ## GitHub Actions
 
@@ -86,3 +88,7 @@ runuser -u mianjing-deploy -- python3 /usr/local/libexec/mianjing-deploy-release
 - 校验和或资源冲突：检查对应 Artifact，保留当前版本，不直接覆盖共享资源。
 - HTTP / HTTPS 检查失败：查看 Actions 日志、Nginx 错误日志、目录读取权限及证书；脚本已尝试恢复前一版本。
 - 宝塔编辑站点后：确认上述 include 仍保留，并执行 `nginx -t`。
+
+## 后端发布门禁
+
+`python3 scripts/check_backend.py` 检查公开就绪接口（apiVersion=1、有效提交 SHA）、游客认证、只读身份和题库／公司读取。它不记录 Token，不写业务数据。门禁在下载产物后、上传及切换前执行。独立后端通过 `/api/mianjing/` 访问，管理员登录继续使用 `/api/auth/login`，现有共享 API 和脚本进程不需重启。

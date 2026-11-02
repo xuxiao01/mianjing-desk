@@ -6,7 +6,7 @@ import type { Mastery, Question, QuestionMetaPatch } from '@/shared/types/domain
 import MasteryBadge from '@/shared/components/MasteryBadge.vue';
 
 const props = defineProps<{
-  question: Question;
+  question: Pick<Question, 'title' | 'mastery'>;
   busy: boolean;
   save: (patch: QuestionMetaPatch) => Promise<boolean>;
 }>();

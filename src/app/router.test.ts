@@ -4,6 +4,11 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { router as appRouter } from './router';
 import DeskLayout from '@/layouts/DeskLayout.vue';
 
+vi.mock('@/modules/auth/session', async () => {
+  const { ref } = await import('vue');
+  return { canEdit: ref(true), identity: ref(null) };
+});
+
 function makeRouter(base = '/') {
   return createRouter({
     history: createMemoryHistory(base),

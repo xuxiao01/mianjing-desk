@@ -5,17 +5,18 @@ import { NConfigProvider, NDialogProvider, NMessageProvider, zhCN, dateZhCN } fr
 import type { GlobalThemeOverrides } from 'naive-ui';
 import DeskLayout from '@/layouts/DeskLayout.vue';
 import ReadingLayout from '@/layouts/ReadingLayout.vue';
-import { queryClient } from './query-client';
-import { useDesk, deskKey } from '@/shared/composables/useDesk';
-import { STORAGE_KEY } from '@/mocks/repository';
+import { useCatalog } from '@/modules/cloud/queries';
+import { syncSession } from '@/modules/auth/session';
 
 import { companyCatalogKey } from '@/shared/composables/useCompanyCatalog';
-import { getCompanyCatalog } from '@/shared/utils/companyCatalog';
-const { data } = useDesk();
+const { data } = useCatalog();
 const route = useRoute();
 provide(
   companyCatalogKey,
-  computed(() => getCompanyCatalog(data.value)),
+  computed(() => ({
+    revision: 0,
+    items: (data.value?.items || []).map((item) => ({ ...item, aliases: [] })),
+  })),
 );
 
 const theme: GlobalThemeOverrides = {
@@ -85,18 +86,16 @@ const theme: GlobalThemeOverrides = {
     borderColor: '#dde4ee',
   },
 };
-function sync(event: StorageEvent) {
-  if (event.key === STORAGE_KEY) void queryClient.invalidateQueries({ queryKey: deskKey });
-}
-onMounted(() => window.addEventListener('storage', sync));
-onUnmounted(() => window.removeEventListener('storage', sync));
+onMounted(() => window.addEventListener('storage', syncSession));
+onUnmounted(() => window.removeEventListener('storage', syncSession));
 </script>
 
 <template>
   <NConfigProvider :theme-overrides="theme" :locale="zhCN" :date-locale="dateZhCN">
     <NDialogProvider
       ><NMessageProvider
-        ><ReadingLayout v-if="route.meta.immersive" /><DeskLayout v-else /></NMessageProvider
+        ><RouterView v-if="route.meta.public" /><ReadingLayout
+          v-else-if="route.meta.immersive" /><DeskLayout v-else /></NMessageProvider
     ></NDialogProvider>
   </NConfigProvider>
 </template>

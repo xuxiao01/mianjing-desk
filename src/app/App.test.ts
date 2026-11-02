@@ -5,9 +5,11 @@ import { createRouter, createMemoryHistory } from 'vue-router';
 import App from './App.vue';
 import { router as appRouter } from './router';
 
-vi.mock('@/shared/composables/useDesk', () => ({
-  useDesk: () => ({ data: ref(undefined) }),
-  deskKey: ['desk', 'snapshot'],
+vi.mock('@/modules/cloud/queries', () => ({ useCatalog: () => ({ data: ref(undefined) }) }));
+vi.mock('@/modules/auth/session', () => ({
+  canEdit: ref(true),
+  identity: ref(null),
+  syncSession: vi.fn(),
 }));
 
 describe('沉浸页面外壳', () => {

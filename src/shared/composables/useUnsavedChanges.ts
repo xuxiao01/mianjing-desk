@@ -1,5 +1,6 @@
 import { onBeforeUnmount, onMounted } from 'vue';
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
+import { forcedExit } from '@/modules/auth/session';
 import { useDialog } from 'naive-ui';
 
 export function useUnsavedChanges(
@@ -32,6 +33,7 @@ export function useUnsavedChanges(
   onMounted(() => window.addEventListener('beforeunload', beforeUnload));
   onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload));
   async function guard() {
+    if (forcedExit.value) return true;
     if (options.isPending?.()) return false;
     if (!(await allowLeave())) return false;
     options.onRouteLeave?.();
