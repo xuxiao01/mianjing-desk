@@ -4,5 +4,7 @@ import App from './App.vue';
 import { router } from './router';
 import { queryClient } from './query-client';
 import '@/styles/global.css';
+import { installAuthGuards } from '@/modules/auth/guards';
+installAuthGuards(router);
 
 createApp(App).use(router).use(VueQueryPlugin, { queryClient }).mount('#app');

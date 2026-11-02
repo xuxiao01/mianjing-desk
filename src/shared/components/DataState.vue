@@ -9,8 +9,7 @@ defineEmits<{ retry: [] }>();
   </div>
   <NAlert v-else-if="error" title="暂时无法加载数据" type="error"
     ><p>{{ error.message }}</p>
-    <NButton size="small" @click="$emit('retry')">重试</NButton
-    ><RouterLink to="/settings" class="inline-link">导出或恢复数据</RouterLink></NAlert
+    <NButton size="small" @click="$emit('retry')">重试</NButton></NAlert
   >
   <slot v-else />
 </template>

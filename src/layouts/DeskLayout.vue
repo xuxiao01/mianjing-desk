@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { BookOpen, Settings2, Menu, X } from 'lucide-vue-next';
 
 const route = useRoute();
 const mobileOpen = ref(false);
 const brandIcon = `${import.meta.env.BASE_URL}favicon.svg?v=teal`;
-const links = [
+import { canEdit } from '@/modules/auth/session';
+import SessionActions from '@/modules/auth/SessionActions.vue';
+const links = computed(() => [
   { to: '/questions', label: '我的题库', icon: BookOpen },
-  { to: '/settings', label: '数据管理', icon: Settings2 },
-];
+  ...(canEdit.value ? [{ to: '/settings', label: '数据管理', icon: Settings2 }] : []),
+]);
 </script>
 
 <template>
@@ -37,6 +39,7 @@ const links = [
           <span>{{ link.label }}</span>
         </RouterLink>
       </nav>
+      <SessionActions style="margin: auto 20px 24px" />
     </aside>
     <main class="main-shell">
       <header class="mobile-topbar">
