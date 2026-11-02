@@ -5,6 +5,7 @@ import { BookOpen, Settings2, Menu, X } from 'lucide-vue-next';
 
 const route = useRoute();
 const mobileOpen = ref(false);
+const brandIcon = `${import.meta.env.BASE_URL}favicon.svg?v=teal`;
 const links = [
   { to: '/questions', label: '我的题库', icon: BookOpen },
   { to: '/settings', label: '数据管理', icon: Settings2 },
@@ -21,7 +22,7 @@ const links = [
     ></button>
     <aside class="sidebar" :class="{ 'is-open': mobileOpen }">
       <RouterLink class="brand" to="/questions" @click="mobileOpen = false">
-        <img :src="'/favicon.svg?v=teal'" width="37" height="37" alt="" />
+        <img :src="brandIcon" width="37" height="37" alt="" />
         <span>面经台</span>
       </RouterLink>
       <nav id="primary-navigation" class="primary-nav" aria-label="主导航">

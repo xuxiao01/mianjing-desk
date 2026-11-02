@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { mount, flushPromises } from '@vue/test-utils';
 import { router as appRouter } from './router';
 import DeskLayout from '@/layouts/DeskLayout.vue';
 
-function makeRouter() {
+function makeRouter(base = '/') {
   return createRouter({
-    history: createMemoryHistory(),
+    history: createMemoryHistory(base),
     routes: appRouter.options.routes.map((record) =>
       'redirect' in record && record.redirect
         ? record
@@ -15,6 +15,27 @@ function makeRouter() {
   });
 }
 describe('精简导航与旧链接兼容', () => {
+  it('子路径导航和品牌图标不会跳出应用前缀', async () => {
+    vi.stubEnv('BASE_URL', '/mianjing/');
+    const router = makeRouter('/mianjing/');
+    await router.push('/questions');
+    const wrapper = mount(DeskLayout, {
+      global: { plugins: [router], stubs: { RouterView: true } },
+    });
+    try {
+      expect(wrapper.find('.brand img').attributes('src')).toBe('/mianjing/favicon.svg?v=teal');
+      expect(wrapper.findAll('nav a').map((link) => link.attributes('href'))).toEqual([
+        '/mianjing/questions',
+        '/mianjing/settings',
+      ]);
+      await wrapper.find('nav a[href="/mianjing/settings"]').trigger('click');
+      await flushPromises();
+      expect(router.currentRoute.value.path).toBe('/settings');
+    } finally {
+      wrapper.unmount();
+      vi.unstubAllEnvs();
+    }
+  });
   it.each(['/experiences?questionId=q-1', '/reviews#history'])(
     '旧地址 %s 返回干净题库地址',
     async (path) => {

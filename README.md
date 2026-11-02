@@ -69,7 +69,7 @@ API_PROXY_TARGET=http://127.0.0.1:3000
 - 所有业务读写经统一仓储接口；Vue Query 维护数据状态，保存成功后使快照查询失效。
 - 普通题目编辑不修改历史统计；列表总次数修正通过独立 meta 接口校验，仅调整历史累计，不删除逐次记录。时间戳使用 ISO 字符串；历史面试日期和复习日期继续按本地日历日期读取。
 - 不持久化登录密码、不伪造登录页；真实认证在 M3 对接现有后端时实施。
-- 源码仓库：[xuxiao01/mianjing-desk](https://github.com/xuxiao01/mianjing-desk)。前端尚未部署，原有后端及此前目录中的其他项目未修改。
+- 源码仓库：[xuxiao01/mianjing-desk](https://github.com/xuxiao01/mianjing-desk)。正式入口：[面经台](https://xuxiaoapi.online/mianjing/)，推送 main 后由 GitHub Actions 检查并发布静态前端；后端尚未接入。
 
 详见 [架构说明](docs/architecture.md)、[开发计划与验收](docs/development-plan.md)、[部署说明](docs/deployment.md)。
 

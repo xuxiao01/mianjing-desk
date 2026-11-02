@@ -1,0 +1,106 @@
+name: Check and deploy frontend
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mianjing-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+      - run: npm install --global pnpm@10.13.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm test
+      - run: python3 -m unittest discover -s scripts/tests -v
+      - run: pnpm build
+      - name: Package exact build
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: python3 scripts/package_release.py dist .release "$RELEASE_SHA"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: frontend-${{ github.sha }}
+          path: .release/
+          retention-days: 7
+          include-hidden-files: true
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: frontend-${{ github.sha }}
+          path: .release/
+      - name: Reject outdated main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          latest=$(gh api repos/xuxiao01/mianjing-desk/git/ref/heads/main --jq .object.sha)
+          test "$latest" = "$RELEASE_SHA" || { echo 'main has advanced; refusing outdated deployment'; exit 1; }
+      - name: Upload and publish validated release
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST" && test -n "$DEPLOY_USER" && test -n "$DEPLOY_SSH_KEY" && test -n "$DEPLOY_KNOWN_HOSTS"
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          (( DEPLOY_PORT > 0 && DEPLOY_PORT < 65536 ))
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          key="$RUNNER_TEMP/mianjing-deploy-key"
+          hosts="$RUNNER_TEMP/mianjing-known-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$hosts"
+          export RSYNC_RSH="ssh -i $key -p $DEPLOY_PORT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$hosts"
+          ssh_args=(-i "$key" -p "$DEPLOY_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$hosts")
+          target="$DEPLOY_USER@$DEPLOY_HOST"
+          upload="$RELEASE_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          [[ "$upload" =~ ^[0-9a-f]{40}-[0-9]+-[0-9]+$ ]]
+          remote="/www/wwwroot/mianjing-desk/incoming/$upload"
+          ssh "${ssh_args[@]}" "$target" "umask 022; mkdir -p '$remote'"
+          rsync -rz --chmod=D755,F644 .release/site "$target:$remote/"
+          rsync -rz --chmod=F644 scripts/deploy_release.py "$target:$remote/deploy_release.py"
+          latest=$(gh api repos/xuxiao01/mianjing-desk/git/ref/heads/main --jq .object.sha)
+          test "$latest" = "$RELEASE_SHA" || { echo 'main advanced during upload; keeping current release'; exit 1; }
+          ssh "${ssh_args[@]}" "$target" "python3 '$remote/deploy_release.py' deploy '$RELEASE_SHA' '$upload'"
+      - name: Record deployment
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          printf 'Published `%s` to https://xuxiaoapi.online/mianjing/\n' "$RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"

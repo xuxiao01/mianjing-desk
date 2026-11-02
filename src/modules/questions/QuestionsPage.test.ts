@@ -125,6 +125,35 @@ afterEach(() => {
 });
 
 describe('紧凑题库的查询与分页', () => {
+  it('部署到子路径后沉浸链接和详情往返保留前缀及查询', async () => {
+    wrapper.unmount();
+    router = createRouter({
+      history: createMemoryHistory('/mianjing/'),
+      routes: router.options.routes,
+    });
+    const query = { search: '并发', pageSize: '50', sort: 'count' };
+    await router.push({ path: '/questions', query });
+    mountWorkspace();
+    await vi.waitFor(() => expect(document.querySelector('.question-link')).toBeTruthy());
+    const reading = document.querySelector<HTMLAnchorElement>('a[target="_blank"]')!;
+    expect(reading.getAttribute('href')).toBe(router.resolve({ path: '/reading', query }).href);
+    expect(reading.getAttribute('href')).toMatch(/^\/mianjing\/reading\?/);
+    await router.push({ path: '/reading', query });
+    await nextTick();
+    document.querySelector<HTMLButtonElement>('.question-link')!.click();
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/reading/q-4'));
+    expect(router.currentRoute.value.query).toEqual(query);
+    expect(router.resolve(router.currentRoute.value.fullPath).href).toMatch(
+      /^\/mianjing\/reading\/q-4\?/,
+    );
+    await vi.waitFor(() => expect(document.querySelector('.n-drawer .n-base-close')).toBeTruthy());
+    document.querySelector<HTMLButtonElement>('.n-drawer .n-base-close')!.click();
+    await vi.waitFor(() => expect(router.currentRoute.value.path).toBe('/reading'));
+    expect(router.currentRoute.value.query).toEqual(query);
+    expect(document.querySelector<HTMLAnchorElement>('.reading-link')!.href).toContain(
+      '/mianjing/questions?',
+    );
+  });
   it.each(['/questions', '/reading'])(
     '%s 高亮标题和知识点，命中内外点击均保留查询进入详情',
     async (base) => {
