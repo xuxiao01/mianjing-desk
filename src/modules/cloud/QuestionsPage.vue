@@ -14,12 +14,11 @@ import {
   useMessage,
 } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
-import { Plus, Search, SlidersHorizontal, Maximize2, Minimize2, ArrowLeft } from 'lucide-vue-next';
+import { Plus, Search, SlidersHorizontal, Maximize2 } from 'lucide-vue-next';
 import { useQuery } from '@tanstack/vue-query';
 import { cloud } from './api';
 import { useRefresh } from './queries';
 import { canEdit } from '@/modules/auth/session';
-import SessionActions from '@/modules/auth/SessionActions.vue';
 import MasteryBadge from '@/shared/components/MasteryBadge.vue';
 import { categories, masteries } from '@/shared/types/domain';
 import type { Question, MetaPatch as QuestionMetaPatch } from './types';
@@ -31,12 +30,20 @@ import { highlightTerms } from '@/shared/utils/searchHighlight';
 import DataState from '@/shared/components/DataState.vue';
 import MasteryCell from '@/modules/questions/MasteryCell.vue';
 import QuestionMetaEditor from './QuestionMetaEditor.vue';
-import { companyColorStyle } from '@/shared/utils/companyColors';
+import CompanyLabel from '@/shared/components/CompanyLabel.vue';
 import { useCompanyCatalog } from '@/shared/composables/useCompanyCatalog';
 import QuestionDetail from './QuestionDetail.vue';
 import QuestionEditor from './QuestionEditor.vue';
 import { compactTableTheme, questionTheme } from '@/modules/questions/theme';
 import '@/modules/questions/questions.css';
+import ReadingSearchPanel from './ReadingSearchPanel.vue';
+import { useReadingQuestions } from './useReadingQuestions';
+import {
+  captureReadingAnchor,
+  restoreReadingAnchor,
+  nearReadingEnd,
+  type ReadingAnchor,
+} from './readingViewport';
 const refresh = useRefresh();
 const message = useMessage();
 const busyIds = ref(new Set<string>());
@@ -117,7 +124,8 @@ function clearFilters() {
   });
   closeMoreFilters();
 }
-const { data, isPending, error, refetch } = useQuery({
+const paged = useQuery({
+  enabled: computed(() => !immersive.value),
   queryKey: computed(() => [
     'mianjing',
     'questions',
@@ -125,6 +133,18 @@ const { data, isPending, error, refetch } = useQuery({
   ]),
   queryFn: ({ signal }) => cloud.list({ ...filters.value, pageSize: pageSize.value }, signal),
 });
+const reading = useReadingQuestions(immersive, filters, pageSize);
+const data = computed(() => (immersive.value ? reading.result.value : paged.data.value));
+const isPending = computed(() =>
+  immersive.value ? reading.isPending.value : paged.isPending.value,
+);
+const error = computed(() =>
+  immersive.value ? (data.value ? null : reading.error.value) : paged.error.value,
+);
+function refetch() {
+  if (immersive.value) reading.retry();
+  else void paged.refetch();
+}
 const results = computed(
   () =>
     data.value || { items: [], total: 0, page: 1, pageSize: pageSize.value, usedCompanyIds: [] },
@@ -167,8 +187,115 @@ function closeMoreFilters() {
   moreOpen.value = false;
   moreTrigger.value?.focus();
 }
-watch([filters, pageSize], () => table.value?.scrollTo({ top: 0, left: 0 }));
+const conditionKey = computed(() =>
+  JSON.stringify(
+    immersive.value ? reading.conditions.value : { ...filters.value, pageSize: pageSize.value },
+  ),
+);
+watch(
+  conditionKey,
+  () => {
+    readingAnchor = undefined;
+    void nextTick(() => table.value?.scrollTo({ top: 0, left: 0 }));
+  },
+  { flush: 'sync' },
+);
+watch(
+  [immersive, () => route.query.page],
+  () => {
+    if (immersive.value && route.query.page !== undefined) {
+      const query = { ...route.query };
+      delete query.page;
+      void router.replace({ path: route.path, query });
+    }
+  },
+  { immediate: true },
+);
+let readingAnchor: ReadingAnchor | undefined;
+let anchorKey = '';
+let observedBody: HTMLElement | null = null;
+let bodyObserver: ResizeObserver | undefined;
+let checkFrame = 0;
+function readingBody(): HTMLElement | null {
+  return (
+    table.value?.$el?.querySelector('.n-data-table-base-table-body .n-scrollbar-container') || null
+  );
+}
+function checkReadingEnd() {
+  if (!immersive.value || selectedId.value || editorOpen.value || metaEditor.value) return;
+  const body = readingBody();
+  if (body && nearReadingEnd(body)) reading.loadMore();
+}
+function scheduleReadingCheck() {
+  if (!immersive.value) return;
+  void nextTick(() => {
+    const body = readingBody();
+    if (body !== observedBody) {
+      bodyObserver?.disconnect();
+      observedBody = body;
+      if (body && typeof ResizeObserver !== 'undefined') {
+        bodyObserver = new ResizeObserver(checkReadingEnd);
+        bodyObserver.observe(body);
+      }
+    }
+    cancelAnimationFrame(checkFrame);
+    checkFrame = requestAnimationFrame(checkReadingEnd);
+  });
+}
+function readingScroll(event: Event) {
+  if (immersive.value && event.target instanceof HTMLElement && nearReadingEnd(event.target))
+    checkReadingEnd();
+}
+watch([() => reading.result.value, table, selectedId], scheduleReadingCheck, { flush: 'post' });
+watch(
+  () => reading.isFetching.value,
+  (fetching, wasFetching) => {
+    if (!immersive.value) return;
+    const body = readingBody();
+    if (fetching && !reading.isFetchingNextPage.value && body && data.value?.items.length) {
+      readingAnchor = captureReadingAnchor(body);
+      anchorKey = conditionKey.value;
+    }
+    if (!fetching && wasFetching) {
+      void nextTick(() => {
+        const current = readingBody();
+        if (readingAnchor && anchorKey === conditionKey.value && current)
+          restoreReadingAnchor(current, readingAnchor);
+        readingAnchor = undefined;
+        scheduleReadingCheck();
+      });
+    }
+  },
+  { flush: 'sync' },
+);
+const readingSummary = computed(() =>
+  immersive.value && results.value.items.length
+    ? () => ({
+        title: {
+          colSpan: 5,
+          value: h('div', { class: 'reading-load-state', role: 'status' }, [
+            reading.isFetching.value
+              ? '正在加载…'
+              : reading.isError.value
+                ? h(
+                    NButton,
+                    { size: 'small', onClick: reading.retry },
+                    { default: () => '加载失败，重试' },
+                  )
+                : reading.hasNextPage.value
+                  ? h(
+                      NButton,
+                      { text: true, onClick: reading.loadMore },
+                      { default: () => '继续加载' },
+                    )
+                  : '已全部加载',
+          ]),
+        },
+      })
+    : undefined,
+);
 function shortcut(event: KeyboardEvent) {
+  if (immersive.value) return;
   const target = event.target as HTMLElement;
   if (
     event.key === '/' &&
@@ -201,6 +328,8 @@ onUnmounted(() => {
   window.removeEventListener('keydown', shortcut);
   document.removeEventListener('fullscreenchange', syncFullscreen);
   desktopQuery?.removeEventListener('change', syncDesktop);
+  bodyObserver?.disconnect();
+  cancelAnimationFrame(checkFrame);
 });
 const editorOpen = ref(false),
   editing = ref<Question>();
@@ -223,7 +352,7 @@ watch(
     settledTick,
   ],
   ([effective, requested, loaded, busy, editing, meta]) => {
-    if (loaded && !busy && !editing && !meta && effective !== requested)
+    if (!immersive.value && loaded && !busy && !editing && !meta && effective !== requested)
       updateFilter('page', effective as number);
   },
   { flush: 'post' },
@@ -278,9 +407,8 @@ function companyOverflow(q: Question, names: string[]) {
               'span',
               {
                 class: 'company-edit-chip readonly-chip',
-                style: companyColorStyle(name, catalog.value),
               },
-              name,
+              h(CompanyLabel, { name }),
             ),
           ),
         ),
@@ -344,14 +472,13 @@ const columns = computed<DataTableColumns<Question>>(() => [
                   {
                     ...(canEdit.value ? { type: 'button' } : {}),
                     class: canEdit.value ? 'company-edit-chip' : 'company-edit-chip readonly-chip',
-                    style: companyColorStyle(name, catalog.value),
                     title: name,
                     disabled: busyIds.value.has(q.id),
                     'aria-label':
                       (canEdit.value ? '编辑' : '查看') + q.title + '的公司标签：' + name,
                     onClick: canEdit.value ? () => editMeta(q, 'company') : undefined,
                   },
-                  name,
+                  h(CompanyLabel, { name }),
                 ),
               ),
               ...(names.length > 2 ? [companyOverflow(q, names)] : []),
@@ -434,17 +561,9 @@ const columns = computed<DataTableColumns<Question>>(() => [
 <template>
   <NConfigProvider :theme-overrides="questionTheme">
     <NDialogProvider>
-      <div class="questions-page">
-        <PageHeading :title="immersive ? '沉浸题库' : '我的题库'">
-          <RouterLink
-            v-if="immersive"
-            :to="{ path: '/questions', query: route.query }"
-            class="reading-link"
-          >
-            <ArrowLeft :size="16" aria-hidden="true" />返回题库
-          </RouterLink>
+      <div class="questions-page" :class="{ 'reading-page': immersive }">
+        <PageHeading v-if="!immersive" title="我的题库">
           <a
-            v-else
             :href="readingHref"
             target="_blank"
             rel="noopener noreferrer"
@@ -453,25 +572,14 @@ const columns = computed<DataTableColumns<Question>>(() => [
           >
             <Maximize2 :size="16" aria-hidden="true" />沉浸阅读
           </a>
-          <NButton v-if="immersive && supportsFullscreen" @click="toggleFullscreen">
-            <template #icon>
-              <Minimize2 v-if="fullscreen" :size="16" /><Maximize2 v-else :size="16" />
-            </template>
-            {{ fullscreen ? '退出全屏' : '进入全屏' }}
-          </NButton>
-          <SessionActions v-if="immersive" /><NButton
-            v-if="canEdit"
-            type="primary"
-            size="large"
-            :disabled="!data"
-            @click="addQuestion"
+          <NButton v-if="canEdit" type="primary" size="large" :disabled="!data" @click="addQuestion"
             ><template #icon><Plus :size="17" /></template>添加题目</NButton
           >
         </PageHeading>
         <DataState :loading="isPending" :error="error" @retry="refetch()">
           <template v-if="data">
             <section class="content-panel">
-              <div class="question-toolbar">
+              <div v-if="!immersive" class="question-toolbar">
                 <div class="category-tabs">
                   <button
                     :aria-pressed="!filters.category"
@@ -498,7 +606,7 @@ const columns = computed<DataTableColumns<Question>>(() => [
                   </button>
                 </div>
               </div>
-              <div class="filter-toolbar">
+              <div v-if="!immersive" class="filter-toolbar">
                 <NInput
                   ref="search"
                   class="search-input"
@@ -587,12 +695,19 @@ const columns = computed<DataTableColumns<Question>>(() => [
                 ref="table"
                 class="questions-table"
                 :theme-overrides="compactTableTheme"
-                :flex-height="desktop"
+                :flex-height="immersive || desktop"
                 :columns="columns"
                 :data="results.items"
                 :row-key="(q: Question) => q.id"
                 :bordered="false"
                 :scroll-x="1100"
+                :summary="readingSummary"
+                :row-props="
+                  immersive
+                    ? (q: Question) => ({ class: 'reading-row', 'data-question-id': q.id })
+                    : undefined
+                "
+                @scroll="readingScroll"
                 ><template #empty
                   ><NEmpty description="没有找到匹配的题目"
                     ><template #extra
@@ -601,7 +716,7 @@ const columns = computed<DataTableColumns<Question>>(() => [
                   ></template
                 ></NDataTable
               >
-              <div class="pagination-footer">
+              <div v-if="!immersive" class="pagination-footer">
                 <span
                   >显示 {{ results.total ? (results.page - 1) * results.pageSize + 1 : 0 }}–{{
                     Math.min(results.page * results.pageSize, results.total)
@@ -635,6 +750,21 @@ const columns = computed<DataTableColumns<Question>>(() => [
             />
           </template>
         </DataState>
+        <ReadingSearchPanel
+          v-if="immersive"
+          :filters="filters"
+          :page-size="pageSize"
+          :loaded="results.items.length"
+          :total="results.total"
+          :companies="allCompanies"
+          :blocked="!!selectedId || editorOpen || !!metaEditor"
+          :fullscreen="fullscreen"
+          :supports-fullscreen="supportsFullscreen"
+          @filter="updateFilter"
+          @clear="clearFilters"
+          @add="addQuestion"
+          @fullscreen="toggleFullscreen"
+        />
         <QuestionEditor
           :show="editorOpen"
           :question="editing"
@@ -665,6 +795,29 @@ const columns = computed<DataTableColumns<Question>>(() => [
 </template>
 
 <style scoped>
+.questions-page.reading-page {
+  height: 100dvh;
+  min-height: 0;
+}
+.reading-page .content-panel {
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+}
+.questions-page.reading-page .questions-table {
+  flex: 1;
+  min-height: 0;
+}
+.reading-page :deep(.reading-load-state) {
+  box-sizing: border-box;
+  min-height: 84px;
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 0 44px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
 .readonly-chip {
   cursor: default;
   border-color: transparent;
@@ -672,6 +825,6 @@ const columns = computed<DataTableColumns<Question>>(() => [
   pointer-events: none;
 }
 .readonly-chip.company-edit-chip {
-  border-color: var(--company-border);
+  border-color: transparent;
 }
 </style>

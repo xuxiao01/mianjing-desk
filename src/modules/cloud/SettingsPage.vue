@@ -49,7 +49,7 @@ const catalog = useCatalog();
   padding: 24px;
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 8px;
 }
 .cloud-overview h2 {
   font-size: 18px;

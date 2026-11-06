@@ -11,31 +11,7 @@
   background: var(--bg);
   color-scheme: light;
   font-synthesis: none;
-  --primary: #0d7d78;
-  --primary-hover: #0a635f;
-  --primary-pressed: #075c58;
-  --primary-soft: #e2f4f2;
-  --primary-line: #a6dad6;
-  --heading: #0b1220;
-  --text: #26334a;
-  --muted: #56657f;
-  --disabled: #94a3b8;
-  --line: #dde4ee;
-  --line-strong: #c3cddc;
-  --surface: #ffffff;
-  --surface-2: #f5f8fc;
-  --surface-3: #eaf0f8;
-  --bg: #eff3f8;
-  --success: #15803d;
-  --success-soft: #e9f7ef;
-  --warning: #b45309;
-  --warning-soft: #fef4e6;
-  --danger: #b42318;
-  --danger-soft: #fdeceb;
-  --focus-ring: rgb(13 125 120 / 20%);
-  --overlay: rgb(11 18 32 / 32%);
-  --shadow-modal: 0 25px 90px rgb(11 18 32 / 15%);
-  --radius: 12px;
+  --radius: 8px;
   --space: 24px;
 }
 * {
@@ -123,7 +99,7 @@ button {
   padding: 12px 14px;
   color: var(--muted);
   font-size: 12px;
-  border-radius: 7px;
+  border-radius: 6px;
 }
 .primary-nav a.active {
   background: var(--primary-soft);
@@ -186,7 +162,7 @@ button {
 .content-panel {
   border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: 11px;
+  border-radius: 8px;
   overflow: hidden;
 }
 kbd {
@@ -223,33 +199,28 @@ kbd {
 .mastery-badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
-  border-radius: 4px;
-  padding: 3px 7px;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 0;
+  color: var(--text);
   white-space: nowrap;
 }
 .mastery-badge i {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
   border-radius: 50%;
-  background: currentColor;
+  background: var(--muted);
 }
-.mastery-badge.known {
-  background: var(--success-soft);
-  color: var(--success);
+.mastery-badge.known i,
+.mastery-badge.fluent i {
+  background: var(--success);
 }
-.mastery-badge.fluent {
-  background: var(--success-soft);
-  color: var(--success);
+.mastery-badge.uncertain i {
+  background: var(--warning);
 }
-.mastery-badge.uncertain {
-  background: var(--warning-soft);
-  color: var(--warning);
-}
-.mastery-badge.weak {
-  background: var(--danger-soft);
-  color: var(--danger);
+.mastery-badge.weak i {
+  background: var(--danger);
 }
 .loading-block {
   padding: 25px;
@@ -354,7 +325,7 @@ kbd {
   max-height: 90vh;
   overflow-y: auto;
   background: var(--surface);
-  border-radius: 13px;
+  border-radius: 12px;
   padding: 27px 30px 22px;
   box-shadow: var(--shadow-modal);
 }
@@ -394,7 +365,7 @@ kbd {
 .settings-card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 11px;
+  border-radius: 8px;
   padding: 25px 27px;
   margin-bottom: 21px;
 }

@@ -28,7 +28,7 @@ describe('精简导航与旧链接兼容', () => {
       global: { plugins: [router], stubs: { RouterView: true } },
     });
     try {
-      expect(wrapper.find('.brand img').attributes('src')).toBe('/mianjing/favicon.svg?v=teal');
+      expect(wrapper.find('.brand img').attributes('src')).toBe('/mianjing/favicon.svg?v=mono');
       expect(wrapper.findAll('nav a').map((link) => link.attributes('href'))).toEqual([
         '/mianjing/questions',
         '/mianjing/settings',

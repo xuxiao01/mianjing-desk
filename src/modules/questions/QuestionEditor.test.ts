@@ -130,9 +130,9 @@ describe('题目来源气泡', () => {
     await click('来源公司', '美团');
     expect(choice('招聘类型', '暑期').getAttribute('aria-pressed')).toBe('true');
     expect(choice('面试轮次', '二面').getAttribute('aria-pressed')).toBe('true');
-    expect(choice('面试轮次', '二面').style.getPropertyValue('--company-color')).toBe('#111827');
+    expect(choice('面试轮次', '二面').style.getPropertyValue('--company-color')).toBe('');
     await click('来源公司', '美团');
-    expect(choice('面试轮次', '二面').style.getPropertyValue('--company-color')).toBe('#56657F');
+    expect(choice('面试轮次', '二面').style.getPropertyValue('--company-color')).toBe('');
     await click('招聘类型', '暑期');
     await click('面试轮次', '二面');
     expect(isDirty()).toBe(false);

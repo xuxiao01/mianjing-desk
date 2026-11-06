@@ -83,3 +83,19 @@ export function toneStyle(tone: CompanyTone) {
 export function companyColorStyle(company?: string, catalog?: CompanyCatalog) {
   return toneStyle(companyTone(company, catalog));
 }
+
+// Company color is a small identifier; text and interaction surfaces stay neutral.
+export function dotStyle(tone: CompanyTone) {
+  return {
+    '--company-dot': tone.background,
+    '--company-dot-border':
+      tone.background === '#FFFFFF'
+        ? '#A1A1AA'
+        : tone.background === '#FFD100'
+          ? '#A88B00'
+          : tone.background,
+  };
+}
+export function companyDotStyle(company?: string, catalog?: CompanyCatalog) {
+  return dotStyle(companyTone(company, catalog));
+}

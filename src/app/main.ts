@@ -4,6 +4,8 @@ import App from './App.vue';
 import { router } from './router';
 import { queryClient } from './query-client';
 import '@/styles/global.css';
+import { installPalette } from '@/styles/palette';
+installPalette();
 import { installAuthGuards } from '@/modules/auth/guards';
 installAuthGuards(router);
 

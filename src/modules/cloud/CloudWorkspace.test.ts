@@ -252,3 +252,225 @@ describe('云端题库界面', () => {
     expect(cloud.deleteQuestion).not.toHaveBeenCalled();
   });
 });
+
+async function reading(path = '/reading') {
+  await router.push(path);
+  await settle();
+}
+async function key(key: string, options: KeyboardEventInit = {}, target: EventTarget = window) {
+  const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...options });
+  target.dispatchEvent(event);
+  await settle();
+  return event;
+}
+function mockReadingRows(count: number) {
+  const rows = Array.from({ length: count }, (_, i) => ({
+    ...q,
+    id: 'row-' + i,
+    title: '并发题目 ' + i,
+  }));
+  vi.mocked(cloud.list).mockImplementation(async (query) => {
+    const page = Number(query.page) || 1;
+    const size = Number(query.pageSize) || 20;
+    return {
+      items: rows.slice((page - 1) * size, page * size),
+      total: count,
+      page,
+      pageSize: size,
+      usedCompanyIds: [company.id],
+    };
+  });
+  return rows;
+}
+describe('沉浸列表和悬浮查询', () => {
+  it('只保留全屏表格与查找入口；去掉旧page并保留其他查询', async () => {
+    await reading('/reading?page=4&search=并发&pageSize=50&category=手撕');
+    expect(router.currentRoute.value.query).toEqual({
+      search: '并发',
+      pageSize: '50',
+      category: '手撕',
+    });
+    expect(wrapper.find('.reading-page').exists()).toBe(true);
+    expect(wrapper.find('.page-heading').exists()).toBe(false);
+    expect(wrapper.find('.filter-toolbar').exists()).toBe(false);
+    expect(wrapper.find('.category-tabs').exists()).toBe(false);
+    expect(wrapper.find('.pagination-footer').exists()).toBe(false);
+    expect(wrapper.find('#reading-search-panel').exists()).toBe(false);
+    expect(button('查找和筛选题目')).toBeTruthy();
+    expect(cloud.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, pageSize: 50 }),
+      expect.anything(),
+    );
+  });
+  it('Ctrl+F、⌘F和/打开；搜索高亮即时更新，Enter收起保留条件和焦点', async () => {
+    await reading();
+    expect((await key('f', { ctrlKey: true })).defaultPrevented).toBe(true);
+    const inputElement = document.querySelector<HTMLInputElement>('.reading-panel-search input')!;
+    expect(document.activeElement).toBe(inputElement);
+    await input(inputElement, '并发');
+    expect(router.currentRoute.value.query.search).toBe('并发');
+    expect(wrapper.find('mark').text()).toBe('并发');
+    expect((await key('f', { metaKey: true }, inputElement)).defaultPrevented).toBe(true);
+    expect(inputElement.selectionStart).toBe(0);
+    expect(inputElement.selectionEnd).toBe(2);
+    await key('Enter', {}, inputElement);
+    expect(wrapper.find('#reading-search-panel').exists()).toBe(false);
+    expect(router.currentRoute.value.query.search).toBe('并发');
+    expect(document.activeElement).toBe(button('查找和筛选题目'));
+    expect((await key('/')).defaultPrevented).toBe(true);
+    await key('Escape', {}, document.activeElement!);
+    expect(wrapper.find('#reading-search-panel').exists()).toBe(false);
+  });
+  it('普通题库、输入区、输入法、详情和编辑弹窗不接管查找', async () => {
+    expect((await key('f', { ctrlKey: true })).defaultPrevented).toBe(false);
+    await reading();
+    const external = document.createElement('textarea');
+    document.body.append(external);
+    expect((await key('f', { ctrlKey: true }, external)).defaultPrevented).toBe(false);
+    external.remove();
+    expect((await key('f', { ctrlKey: true, isComposing: true })).defaultPrevented).toBe(false);
+    await click(q.title);
+    expect((await key('f', { ctrlKey: true })).defaultPrevented).toBe(false);
+    await click('编辑题目');
+    expect((await key('/')).defaultPrevented).toBe(false);
+    expect(wrapper.find('#reading-search-panel').exists()).toBe(false);
+  });
+  it('分类、清除、点击外部、历史查询变化即时生效', async () => {
+    await reading('/reading?search=并发&pageSize=50');
+    await click('查找和筛选题目');
+    await click('八股基础');
+    expect(router.currentRoute.value.query.category).toBe('八股');
+    await click('清除条件');
+    expect(router.currentRoute.value.query).toEqual({ pageSize: '50' });
+    expect(wrapper.find('#reading-search-panel').exists()).toBe(true);
+    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    await settle();
+    expect(wrapper.find('#reading-search-panel').exists()).toBe(false);
+    await router.replace('/reading?search=Promise&mastery=不会');
+    await settle();
+    await click('查找和筛选题目');
+    expect(document.querySelector<HTMLInputElement>('.reading-panel-search input')!.value).toBe(
+      'Promise',
+    );
+    expect(document.querySelector('.reading-filter-count')?.textContent).toBe('2');
+  });
+  it('按批串行追加，直至加载结束，详情往返不重新取首批', async () => {
+    const rows = mockReadingRows(42);
+    await reading();
+    expect(wrapper.findAll('.question-link')).toHaveLength(20);
+    await click('继续加载');
+    expect(wrapper.findAll('.question-link')).toHaveLength(40);
+    await click('继续加载');
+    expect(wrapper.findAll('.question-link')).toHaveLength(42);
+    expect(wrapper.text()).toContain('已全部加载');
+    const calls = vi.mocked(cloud.list).mock.calls.length;
+    vi.mocked(cloud.detail).mockResolvedValue({ question: rows[30]!, occurrences: [] });
+    await click(rows[30]!.title);
+    await router.push('/reading');
+    await settle();
+    expect(wrapper.findAll('.question-link')).toHaveLength(42);
+    expect(cloud.list).toHaveBeenCalledTimes(calls);
+  });
+  it('后续请求失败保留题目并可重试，不同时重复加载', async () => {
+    const rows = mockReadingRows(40);
+    await reading();
+    vi.mocked(cloud.list).mockRejectedValueOnce(new Error('网络失败'));
+    await click('继续加载');
+    expect(wrapper.findAll('.question-link')).toHaveLength(20);
+    expect(wrapper.text()).not.toContain('暂时无法加载数据');
+    await click('加载失败，重试');
+    expect(wrapper.findAll('.question-link')).toHaveLength(rows.length);
+  });
+  it('真实表格滚动节点到达240px阈值时只发起一次下一批请求', async () => {
+    const rows = mockReadingRows(40);
+    await reading();
+    const body = document.querySelector<HTMLElement>(
+      '.n-data-table-base-table-body .n-scrollbar-container',
+    )!;
+    expect(body).toBeTruthy();
+    Object.defineProperties(body, { clientHeight: { value: 500 }, scrollHeight: { value: 2000 } });
+    body.scrollTop = 1260;
+    let resolveNext!: (result: Awaited<ReturnType<typeof cloud.list>>) => void;
+    vi.mocked(cloud.list).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveNext = resolve;
+        }),
+    );
+    body.dispatchEvent(new Event('scroll'));
+    body.dispatchEvent(new Event('scroll'));
+    await settle();
+    expect(vi.mocked(cloud.list).mock.calls.filter(([query]) => query.page === 2)).toHaveLength(1);
+    resolveNext({ items: rows.slice(20), total: 40, page: 2, pageSize: 20, usedCompanyIds: [] });
+    await settle();
+    expect(wrapper.findAll('.question-link')).toHaveLength(40);
+  });
+  it('切换搜索取消旧请求，旧响应不混入新条件', async () => {
+    let resolveOld!: (value: Awaited<ReturnType<typeof cloud.list>>) => void;
+    let oldSignal: AbortSignal | undefined;
+    vi.mocked(cloud.list).mockImplementationOnce((_query, signal) => {
+      oldSignal = signal;
+      return new Promise((resolve) => {
+        resolveOld = resolve;
+      });
+    });
+    await reading('/reading?search=old');
+    await click('查找和筛选题目');
+    await input(document.querySelector<HTMLInputElement>('.reading-panel-search input')!, 'new');
+    expect(oldSignal?.aborted).toBe(true);
+    resolveOld({
+      items: [{ ...q, id: 'old', title: '过期结果' }],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      usedCompanyIds: [],
+    });
+    await settle();
+    expect(wrapper.text()).not.toContain('过期结果');
+    expect(cloud.list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ search: 'new', page: 1 }),
+      expect.anything(),
+    );
+  });
+  it('刷新已加载批次顺序重取，返回页码回退时重置首批', async () => {
+    const rows = mockReadingRows(40);
+    await reading();
+    await click('继续加载');
+    const before = vi.mocked(cloud.list).mock.calls.length;
+    await client.invalidateQueries({ queryKey: ['mianjing'] });
+    await settle();
+    expect(
+      vi
+        .mocked(cloud.list)
+        .mock.calls.slice(before)
+        .map(([query]) => query.page),
+    ).toEqual([1, 2]);
+    vi.mocked(cloud.list).mockImplementation(async () => ({
+      items: rows.slice(0, 1),
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      usedCompanyIds: [],
+    }));
+    await client.invalidateQueries({ queryKey: ['mianjing'] });
+    await settle();
+    expect(wrapper.findAll('.question-link')).toHaveLength(1);
+    expect(wrapper.text()).toContain('已全部加载');
+  });
+  it('游客菜单无新增入口，仍能返回普通题库', async () => {
+    identity.value = { role: 'guest', user: null, isAdmin: false, canEdit: false };
+    await reading('/reading?search=并发');
+    await click('查找和筛选题目');
+    await click('阅读更多操作');
+    expect(document.body.textContent).not.toContain('添加题目');
+    const back = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find((item) =>
+      item.textContent?.includes('返回普通题库'),
+    )!;
+    expect(back).toBeTruthy();
+    back.querySelector<HTMLElement>('.n-dropdown-option-body')!.click();
+    await settle();
+    expect(router.currentRoute.value.path).toBe('/questions');
+    expect(router.currentRoute.value.query.search).toBe('并发');
+    expect(wrapper.find('.pagination-footer').exists()).toBe(true);
+  });
+});

@@ -80,7 +80,7 @@ async function cancel() {
 describe('逐次问法编辑表单', () => {
   it('仅有两个文本输入，来源只读，清空问法后也可按记录 ID 保存', async () => {
     expect(document.querySelectorAll('textarea')).toHaveLength(2);
-    expect(document.querySelectorAll('.source-badge')).toHaveLength(2);
+    expect(document.querySelectorAll('.source-company, .source-badge')).toHaveLength(2);
     expect(document.querySelector('select, input, .bubble-choice')).toBeNull();
     expect(isDirty()).toBe(false);
     await fill(0, '');

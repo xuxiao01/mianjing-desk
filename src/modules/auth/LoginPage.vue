@@ -79,7 +79,7 @@ async function enter(guest = false) {
   box-sizing: border-box;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 12px;
   padding: 32px;
 }
 .login-card h1 {

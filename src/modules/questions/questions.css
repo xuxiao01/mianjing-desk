@@ -23,7 +23,7 @@
   min-height: 36px;
   padding: 0 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text);
   font-size: 14px;
@@ -195,14 +195,14 @@
 .questions-page .company-chips {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   min-width: 0;
 }
 .questions-page .company-overflow {
   flex-shrink: 0;
   padding: 1px 7px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 6px;
   background: var(--surface-2);
   color: var(--muted);
   font-size: 12px;
@@ -211,12 +211,12 @@
 }
 .questions-page .company-edit-chip {
   min-width: 0;
-  max-width: 80px;
-  padding: 1px 9px;
-  border: 1px solid var(--company-border);
-  border-radius: 999px;
-  background: var(--company-background);
-  color: var(--company-color);
+  max-width: 108px;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
   font-size: 12px;
   font-weight: 500;
   line-height: 20px;
@@ -246,12 +246,12 @@
   outline-offset: 3px;
 }
 .questions-page .company-edit-chip:focus-visible {
-  outline: 2px solid var(--company-focus-color);
+  outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
 .questions-page .company-edit-chip:hover:not(:disabled) {
-  border-color: var(--company-selected-border);
-  background: var(--company-hover-background);
+  border-color: var(--line-strong);
+  background: var(--surface-2);
 }
 .questions-page :is(.cell-edit, .company-edit-chip, .company-overflow):disabled {
   opacity: 0.55;
@@ -277,7 +277,7 @@
   white-space: nowrap;
 }
 .questions-page .organized-label.done {
-  color: var(--success);
+  color: var(--text);
 }
 .questions-page .pagination-footer {
   display: flex;

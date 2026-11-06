@@ -7,7 +7,8 @@ import { cloud } from './api';
 import { useRefresh, useCatalog } from './queries';
 import { useUnsavedChanges } from '@/shared/composables/useUnsavedChanges';
 import { normalizeCatalogItems } from '@/shared/utils/companyCatalog';
-import { companyPalettes, paletteTone, toneStyle } from '@/shared/utils/companyColors';
+import CompanyLabel from '@/shared/components/CompanyLabel.vue';
+import { companyPalettes, toneStyle } from '@/shared/utils/companyColors';
 
 const emit = defineEmits<{ close: [] }>();
 const surface = ref<HTMLDivElement>();
@@ -193,9 +194,7 @@ async function save() {
           class="catalog-row"
           :class="{ inactive: !item.enabled }"
         >
-          <span class="catalog-chip" :style="toneStyle(paletteTone(item.palette))">{{
-            item.name
-          }}</span>
+          <CompanyLabel class="catalog-chip" :name="item.name" :palette="item.palette" />
           <span class="catalog-row-color"
             >{{ companyPalettes.find((p) => p.key === item.palette)?.label }}色<span
               v-if="!item.enabled"
@@ -290,7 +289,10 @@ async function save() {
   padding: 12px 0;
   border-bottom: 1px solid var(--line);
 }
-.catalog-chip,
+.catalog-chip {
+  font-size: 14px;
+  max-width: 100%;
+}
 .catalog-palette button {
   border: 1px solid var(--company-border);
   color: var(--company-color);

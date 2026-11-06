@@ -36,7 +36,9 @@ describe('共享公司选择', () => {
     renamed.items[0]!.palette = 'red';
     await wrapper.setProps({ catalog: renamed });
     expect(wrapper.find('.company-tag-draft').text()).toBe('Byte');
-    expect(wrapper.find('.company-tag-draft').attributes('style')).toContain('#E1251B');
+    expect(wrapper.find('.company-tag-draft .company-label').attributes('style')).toContain(
+      '#E1251B',
+    );
     await wrapper.find('[aria-label="删除公司标签Byte"]').trigger('click');
     expect(wrapper.emitted('update:modelValue')!.at(-1)).toEqual([[]]);
     await wrapper.setProps({ modelValue: [] });

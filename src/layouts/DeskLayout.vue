@@ -5,7 +5,7 @@ import { BookOpen, Settings2, Menu, X } from 'lucide-vue-next';
 
 const route = useRoute();
 const mobileOpen = ref(false);
-const brandIcon = `${import.meta.env.BASE_URL}favicon.svg?v=teal`;
+const brandIcon = `${import.meta.env.BASE_URL}favicon.svg?v=mono`;
 import { canEdit } from '@/modules/auth/session';
 import SessionActions from '@/modules/auth/SessionActions.vue';
 const links = computed(() => [
