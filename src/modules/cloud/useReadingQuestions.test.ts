@@ -10,8 +10,8 @@ const page = (ids: string[], current: number, total: number): ListResult => ({
   pageSize: 20,
   usedCompanyIds: [],
 });
-describe('沉浸连续加载规则', () => {
-  it('查询键保留筛选条件和批量数量，忽略普通分页page', () => {
+describe('共享连续加载规则', () => {
+  it('查询键保留筛选条件和批量数量，忽略旧分页page', () => {
     const filters = { ...emptyFilters, page: 9, search: '并发', company: 'a' };
     expect(readingConditions(filters, 50)).toEqual({
       search: '并发',

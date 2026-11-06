@@ -33,7 +33,8 @@ export const cloud = {
       items: input.items.map(({ id, name, palette, enabled }) => ({ id, name, palette, enabled })),
     }),
   create: (input: CreateInput) => send<Question>('/questions', 'POST', input),
-  edit: (id: string, input: QuestionInput) => send<Question>('/questions/' + id, 'PATCH', input),
+  edit: (id: string, input: Partial<QuestionInput>) =>
+    send<Question>('/questions/' + id, 'PATCH', input),
   meta: (id: string, input: MetaPatch) =>
     send<Question>('/questions/' + id + '/meta', 'PATCH', input),
   record: (id: string, input: { companyId: string; content: string }) =>

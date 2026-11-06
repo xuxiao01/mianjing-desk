@@ -10,6 +10,7 @@ import { normalizeCatalogItems } from '@/shared/utils/companyCatalog';
 import CompanyLabel from '@/shared/components/CompanyLabel.vue';
 import { companyPalettes, toneStyle } from '@/shared/utils/companyColors';
 
+const props = defineProps<{ contextDirty?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 const surface = ref<HTMLDivElement>();
 const nameInput = ref<InstanceType<typeof NInput>>();
@@ -29,7 +30,10 @@ const dirty = computed(
     JSON.stringify(items.value) !== baseline.value ||
     (!!editing.value && JSON.stringify(form) !== formBaseline.value),
 );
-const { allowLeave } = useUnsavedChanges(() => dirty.value, { isPending: () => pending.value });
+const { allowLeave } = useUnsavedChanges(() => dirty.value, {
+  isPending: () => pending.value,
+  routeDirty: () => dirty.value || !!props.contextDirty,
+});
 const message = useMessage();
 function edit(item?: CompanyTag) {
   editing.value = item?.id || 'new';

@@ -79,6 +79,7 @@
   width: max-content;
 }
 .questions-page .category-tabs button {
+  font-weight: 500;
   min-height: 44px;
   padding: 0 0 2px;
   border: 0;
@@ -91,7 +92,6 @@
 .questions-page .category-tabs button.active {
   border-bottom-color: var(--primary);
   color: var(--primary);
-  font-weight: 600;
 }
 .questions-page .search-input {
   width: 100%;
@@ -195,35 +195,44 @@
 .questions-page .company-chips {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
+}
+.questions-page .company-overflow,
+.questions-page .company-edit-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 0;
+  max-width: 108px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.questions-page .company-label {
+  height: 28px;
+  padding: 2px 10px;
+  font-size: 16px;
+  line-height: 22px;
 }
 .questions-page .company-overflow {
   flex-shrink: 0;
-  padding: 1px 7px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 20px;
-  cursor: pointer;
 }
-.questions-page .company-edit-chip {
-  min-width: 0;
-  max-width: 108px;
-  padding: 1px 4px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
+.company-overflow-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
   color: var(--text);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 20px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: pointer;
+  font-size: 16px;
+  line-height: 22px;
 }
 .questions-page .cell-edit {
   min-height: 36px;
@@ -249,9 +258,12 @@
   outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
-.questions-page .company-edit-chip:hover:not(:disabled) {
+.questions-page .company-edit-chip:hover:not(:disabled) .company-label {
+  background: var(--company-hover-background);
+}
+.questions-page .company-overflow:hover:not(:disabled) .company-overflow-badge {
   border-color: var(--line-strong);
-  background: var(--surface-2);
+  background: var(--primary-soft);
 }
 .questions-page :is(.cell-edit, .company-edit-chip, .company-overflow):disabled {
   opacity: 0.55;
@@ -261,23 +273,29 @@
   opacity: 1;
   border-style: dashed;
 }
+.questions-page .questions-table[aria-busy='true'] button:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+.questions-page .questions-table[aria-busy='true'] .company-edit-chip:disabled {
+  border-style: solid;
+}
 .questions-page .empty-company-edit {
   color: var(--muted);
   font-size: 12px;
 }
-.questions-page .count-cell strong {
-  color: var(--text);
-  font-size: 16px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
+.questions-page .count-cell,
 .questions-page .organized-label {
-  color: var(--muted);
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
   white-space: nowrap;
 }
-.questions-page .organized-label.done {
-  color: var(--text);
+.questions-page .mastery-badge {
+  height: 28px;
+  padding: 3px 10px;
+  font-size: 16px;
+  line-height: 22px;
 }
 .questions-page .pagination-footer {
   display: flex;
@@ -299,7 +317,7 @@
   width: 108px;
 }
 :is(.questions-page, .question-detail) .category-chip,
-:is(.questions-page, .question-detail) .mastery-badge,
+.question-detail .mastery-badge,
 .question-detail .tag {
   padding: 2px 7px;
   font-size: 12px;

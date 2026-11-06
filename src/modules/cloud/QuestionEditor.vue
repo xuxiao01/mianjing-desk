@@ -1,23 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
-import {
-  NModal,
-  NButton,
-  NForm,
-  NFormItem,
-  NInput,
-  NSelect,
-  NCheckbox,
-  useMessage,
-} from 'naive-ui';
+import { NModal, NButton, NForm, NFormItem, useMessage } from 'naive-ui';
 import { X, Save } from 'lucide-vue-next';
-import {
-  categories,
-  masteries,
-  priorities,
-  recruitmentTypes,
-  interviewRounds,
-} from '@/shared/types/domain';
+import { recruitmentTypes, interviewRounds } from '@/shared/types/domain';
 import type { Question, QuestionInput, CreateInput } from './types';
 import type { RecruitmentType, InterviewRound } from '@/shared/types/domain';
 import { cloud } from './api';
@@ -29,6 +14,8 @@ import CompanyCatalogManager from './CompanyCatalogManager.vue';
 import { useCompanyCatalog } from '@/shared/composables/useCompanyCatalog';
 import { companyName } from '@/shared/utils/companyCatalog';
 import { interviewSourceErrors } from '@/shared/api/validation';
+import QuestionFields from './QuestionFields.vue';
+import { questionPayload } from './questionForm';
 
 const props = defineProps<{ show: boolean; question?: Question }>();
 const emit = defineEmits<{ close: []; saved: [id: string] }>();
@@ -116,19 +103,7 @@ async function save() {
   sourceSubmitted.value = true;
   if (!props.question && Object.keys(sourceErrors.value).length) return;
   try {
-    const payload = JSON.parse(
-      JSON.stringify({
-        ...input,
-        tags: tags.value
-          .split(/[,，、]/)
-          .map((x) => x.trim())
-          .filter(Boolean),
-      }),
-    ) as QuestionInput;
-    if (!payload.title.trim()) {
-      message.error('请填写题目');
-      return;
-    }
+    const payload = questionPayload(input, tags.value);
     pending.value = true;
     const createInput: CreateInput = {
       ...payload,
@@ -178,76 +153,64 @@ async function save() {
         </button>
       </div>
       <NForm :disabled="pending" @submit.prevent="save"
-        ><NFormItem label="题目 / 标准问法" required
-          ><NInput
-            v-model:value="input.title"
-            type="textarea"
-            :maxlength="10000"
-            :autosize="{ minRows: 2, maxRows: 5 }"
-            placeholder="例如：Promise.all 中的一个任务失败会怎样？"
-        /></NFormItem>
-        <section v-if="!question" class="question-source" aria-label="面试来源">
-          <h3>面试来源 <span>选填</span></h3>
-          <NFormItem
-            label="公司"
-            :validation-status="sourceSubmitted && sourceErrors.company ? 'error' : undefined"
-            :feedback="sourceSubmitted ? sourceErrors.company : undefined"
-          >
-            <div class="company-entry">
-              <CompanyPicker
-                :catalog="catalog"
-                :model-value="companyChoice ? [companyChoice] : []"
-                :disabled="pending"
-                @update:model-value="companyChoice = $event[0] || null"
-                @manage="managing = true"
-              />
-            </div>
-          </NFormItem>
-          <div class="form-grid">
+        ><QuestionFields
+          :model-value="input"
+          :tags="tags"
+          :show-organized="!!question"
+          @update:model-value="Object.assign(input, $event)"
+          @update:tags="tags = $event"
+        >
+          <section v-if="!question" class="question-source" aria-label="面试来源">
+            <h3>面试来源 <span>选填</span></h3>
             <NFormItem
-              label="招聘类型"
-              :validation-status="
-                sourceSubmitted && sourceErrors.recruitmentType ? 'error' : undefined
-              "
-              :feedback="sourceSubmitted ? sourceErrors.recruitmentType : undefined"
+              label="公司"
+              :validation-status="sourceSubmitted && sourceErrors.company ? 'error' : undefined"
+              :feedback="sourceSubmitted ? sourceErrors.company : undefined"
             >
-              <BubbleSelect
-                v-model="source.recruitmentType"
-                :options="options(recruitmentTypes)"
-                :company="source.company"
-                :catalog="catalog"
+              <div class="company-entry">
+                <CompanyPicker
+                  :catalog="catalog"
+                  :model-value="companyChoice ? [companyChoice] : []"
+                  :disabled="pending"
+                  @update:model-value="companyChoice = $event[0] || null"
+                  @manage="managing = true"
+                />
+              </div>
+            </NFormItem>
+            <div class="form-grid">
+              <NFormItem
                 label="招聘类型"
-                :disabled="pending"
-              />
-            </NFormItem>
-            <NFormItem
-              label="面试轮次"
-              :validation-status="sourceSubmitted && sourceErrors.round ? 'error' : undefined"
-              :feedback="sourceSubmitted ? sourceErrors.round : undefined"
-            >
-              <BubbleSelect
-                v-model="source.round"
-                :options="options(interviewRounds)"
-                :company="source.company"
-                :catalog="catalog"
+                :validation-status="
+                  sourceSubmitted && sourceErrors.recruitmentType ? 'error' : undefined
+                "
+                :feedback="sourceSubmitted ? sourceErrors.recruitmentType : undefined"
+              >
+                <BubbleSelect
+                  v-model="source.recruitmentType"
+                  :options="options(recruitmentTypes)"
+                  :company="source.company"
+                  :catalog="catalog"
+                  label="招聘类型"
+                  :disabled="pending"
+                />
+              </NFormItem>
+              <NFormItem
                 label="面试轮次"
-                :disabled="pending"
-              />
-            </NFormItem>
-          </div>
-        </section>
-        <div class="form-grid">
-          <NFormItem label="题型"
-            ><NSelect v-model:value="input.category" :options="options(categories)" /></NFormItem
-          ><NFormItem label="优先级"
-            ><NSelect v-model:value="input.priority" :options="options(priorities)" /></NFormItem
-          ><NFormItem label="掌握程度"
-            ><NSelect v-model:value="input.mastery" :options="options(masteries)" /></NFormItem
-          ><NFormItem label="知识点"
-            ><NInput v-model:value="tags" placeholder="JavaScript, Promise"
-          /></NFormItem>
-        </div>
-        <NCheckbox v-if="question" v-model:checked="input.organized">已整理</NCheckbox>
+                :validation-status="sourceSubmitted && sourceErrors.round ? 'error' : undefined"
+                :feedback="sourceSubmitted ? sourceErrors.round : undefined"
+              >
+                <BubbleSelect
+                  v-model="source.round"
+                  :options="options(interviewRounds)"
+                  :company="source.company"
+                  :catalog="catalog"
+                  label="面试轮次"
+                  :disabled="pending"
+                />
+              </NFormItem>
+            </div>
+          </section>
+        </QuestionFields>
         <footer class="modal-footer">
           <span v-if="dirty">有未保存的修改</span
           ><NButton :disabled="pending" @click="close">取消</NButton

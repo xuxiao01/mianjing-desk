@@ -1,5 +1,5 @@
 import { computed, watch, type Ref } from 'vue';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/vue-query';
+import { keepPreviousData, useInfiniteQuery, useQueryClient } from '@tanstack/vue-query';
 import { cloud } from './api';
 import type { Question, ListResult } from './types';
 import type { QuestionFilters } from '@/shared/types/domain';
@@ -36,10 +36,11 @@ export function useReadingQuestions(
   enabled: Ref<boolean>,
   filters: Ref<QuestionFilters>,
   pageSize: Ref<number>,
+  scope?: Ref<'questions' | 'reading'>,
 ) {
   const client = useQueryClient();
   const conditions = computed(() => readingConditions(filters.value, pageSize.value));
-  const key = computed(() => ['mianjing', 'reading', conditions.value]);
+  const key = computed(() => ['mianjing', scope?.value || 'reading', conditions.value]);
   const query = useInfiniteQuery({
     queryKey: key,
     enabled,
@@ -47,6 +48,7 @@ export function useReadingQuestions(
     queryFn: ({ pageParam, signal }) =>
       cloud.list({ ...conditions.value, page: pageParam }, signal),
     getNextPageParam: nextReadingPage,
+    placeholderData: keepPreviousData,
     // Reading position belongs to this mounted list, not to a persisted session.
     gcTime: 0,
     refetchOnWindowFocus: false,
@@ -60,14 +62,22 @@ export function useReadingQuestions(
   });
   const resetVersion = computed(
     () =>
-      pages.value.some((page, index) => page.page !== index + 1) ||
-      pages.value.some((page) => page.total !== pages.value[0]?.total),
+      !query.isPlaceholderData.value &&
+      (pages.value.some((page, index) => page.page !== index + 1) ||
+        pages.value.some((page) => page.total !== pages.value[0]?.total)),
   );
   watch(resetVersion, (invalid) => {
-    if (invalid && enabled.value) void client.resetQueries({ queryKey: key.value, exact: true });
+    if (invalid && enabled.value && !query.isPlaceholderData.value)
+      void client.resetQueries({ queryKey: key.value, exact: true });
   });
   function loadMore() {
-    if (!enabled.value || !query.hasNextPage.value || query.isFetching.value || query.isError.value)
+    if (
+      !enabled.value ||
+      query.isPlaceholderData.value ||
+      !query.hasNextPage.value ||
+      query.isFetching.value ||
+      query.isError.value
+    )
       return;
     void query.fetchNextPage();
   }

@@ -2,25 +2,25 @@
 import { computed } from 'vue';
 import type { CompanyCatalog, CompanyPaletteKey } from '@/shared/types/domain';
 import { useCompanyCatalog } from '@/shared/composables/useCompanyCatalog';
-import { companyDotStyle, dotStyle, paletteTone } from '@/shared/utils/companyColors';
+import { companyTone, toneStyle, paletteTone } from '@/shared/utils/companyColors';
 
 const props = defineProps<{
   name: string;
   catalog?: CompanyCatalog;
   palette?: CompanyPaletteKey;
+  bare?: boolean;
 }>();
 const inherited = useCompanyCatalog();
 const style = computed(() =>
   props.palette
-    ? dotStyle(paletteTone(props.palette))
-    : companyDotStyle(props.name, props.catalog || inherited.value),
+    ? toneStyle(paletteTone(props.palette))
+    : toneStyle(companyTone(props.name, props.catalog || inherited.value)),
 );
 </script>
 
 <template>
-  <span class="company-label" :style="style" :title="name">
-    <i class="company-color-dot" aria-hidden="true"></i
-    ><span class="company-label-name">{{ name }}</span>
+  <span class="company-label" :class="{ bare }" :style="style" :title="name">
+    <span class="company-label-name">{{ name }}</span>
   </span>
 </template>
 
@@ -29,22 +29,24 @@ const style = computed(() =>
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  padding: 2px 9px;
+  border: 1px solid var(--company-border);
+  border-radius: 999px;
+  background: var(--company-background);
   min-width: 0;
   max-width: 100%;
-  color: var(--text);
+  color: var(--company-color);
   font-size: inherit;
-  font-weight: 400;
+  font-weight: 500;
   line-height: inherit;
   vertical-align: middle;
 }
-.company-color-dot {
-  width: 7px;
-  height: 7px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  border: 1px solid var(--company-dot-border);
-  background: var(--company-dot);
+.company-label.bare {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
 }
 .company-label-name {
   min-width: 0;

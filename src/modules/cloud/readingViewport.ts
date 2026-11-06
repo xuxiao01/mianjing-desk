@@ -5,8 +5,11 @@ export interface ReadingAnchor {
   left: number;
 }
 
-export function captureReadingAnchor(container: HTMLElement): ReadingAnchor {
-  const top = container.getBoundingClientRect().top;
+export function captureReadingAnchor(
+  container: HTMLElement,
+  windowViewport = false,
+): ReadingAnchor {
+  const top = windowViewport ? 0 : container.getBoundingClientRect().top;
   const row = [...container.querySelectorAll<HTMLElement>('[data-question-id]')].find(
     (element) => element.getBoundingClientRect().bottom > top,
   );
@@ -18,26 +21,39 @@ export function captureReadingAnchor(container: HTMLElement): ReadingAnchor {
   };
 }
 
-export function restoreReadingAnchor(container: HTMLElement, anchor: ReadingAnchor) {
+export function restoreReadingAnchor(
+  container: HTMLElement,
+  anchor: ReadingAnchor,
+  windowViewport = false,
+) {
   const row = [...container.querySelectorAll<HTMLElement>('[data-question-id]')].find(
     (element) => element.dataset.questionId === anchor.id,
   );
   const top = row
     ? container.scrollTop +
       row.getBoundingClientRect().top -
-      container.getBoundingClientRect().top -
+      (windowViewport ? 0 : container.getBoundingClientRect().top) -
       anchor.offset
     : anchor.top;
-  container.scrollTo({
-    top: Math.max(0, Math.min(top, container.scrollHeight - container.clientHeight)),
+  const target = windowViewport ? window : container;
+  target.scrollTo({
+    top: Math.max(
+      0,
+      Math.min(
+        top,
+        container.scrollHeight - (windowViewport ? window.innerHeight : container.clientHeight),
+      ),
+    ),
     left: anchor.left,
     behavior: 'instant',
   });
 }
 
-export function nearReadingEnd(container: HTMLElement) {
+export function nearReadingEnd(container: HTMLElement, windowViewport = false) {
+  const height = windowViewport ? window.innerHeight : container.clientHeight;
   return (
-    container.clientHeight > 0 &&
-    container.scrollHeight - container.scrollTop - container.clientHeight <= 240
+    height > 0 &&
+    container.scrollHeight > 0 &&
+    container.scrollHeight - container.scrollTop - height <= 240
   );
 }

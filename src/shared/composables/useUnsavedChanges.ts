@@ -5,12 +5,18 @@ import { useDialog } from 'naive-ui';
 
 export function useUnsavedChanges(
   isDirty: () => boolean,
-  options: { isPending?: () => boolean; onRouteLeave?: () => void } = {},
+  options: {
+    isPending?: () => boolean;
+    onRouteLeave?: () => void;
+    routeDirty?: () => boolean;
+  } = {},
 ) {
   const dialog = useDialog();
-  function allowLeave(): Promise<boolean> {
-    if (!isDirty()) return Promise.resolve(true);
-    return new Promise((resolve) => {
+  let confirmation: Promise<boolean> | undefined;
+  function allowLeave(warn = isDirty()): Promise<boolean> {
+    if (!warn) return Promise.resolve(true);
+    if (confirmation) return confirmation;
+    confirmation = new Promise((resolve) => {
       dialog.warning({
         title: '还有未保存的内容',
         content: '离开会丢失这次修改，要放弃修改吗？',
@@ -23,9 +29,14 @@ export function useUnsavedChanges(
         onEsc: () => resolve(false),
       });
     });
+    const current = confirmation;
+    void current.then(() => {
+      if (confirmation === current) confirmation = undefined;
+    });
+    return current;
   }
   function beforeUnload(event: BeforeUnloadEvent) {
-    if (isDirty()) {
+    if (options.routeDirty?.() ?? isDirty()) {
       event.preventDefault();
       event.returnValue = '';
     }
@@ -35,7 +46,7 @@ export function useUnsavedChanges(
   async function guard() {
     if (forcedExit.value) return true;
     if (options.isPending?.()) return false;
-    if (!(await allowLeave())) return false;
+    if (!(await allowLeave(options.routeDirty?.() ?? isDirty()))) return false;
     options.onRouteLeave?.();
     return true;
   }

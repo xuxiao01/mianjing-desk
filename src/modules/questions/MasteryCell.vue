@@ -104,8 +104,8 @@ function navigate(event: KeyboardEvent) {
   min-width: 156px;
 }
 .mastery-edit-menu :deep(.mastery-badge) {
-  padding: 2px 7px;
-  font-size: 14px;
+  padding: 3px 10px;
+  font-size: 16px;
   line-height: 22px;
 }
 .mastery-edit-menu button {

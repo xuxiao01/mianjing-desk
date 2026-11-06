@@ -40,3 +40,25 @@ describe('沉浸列表滚动位置', () => {
     expect(nearReadingEnd(document.createElement('div'))).toBe(false);
   });
 });
+
+it('窄屏按窗口顶部计算阅读锚点，恢复页面滚动并使用窗口高度判断加载', () => {
+  const container = viewport();
+  container.getBoundingClientRect = () => ({ top: -320 }) as DOMRect;
+  container.children[0]!.getBoundingClientRect = () => ({ top: -80, bottom: -5 }) as DOMRect;
+  container.children[1]!.getBoundingClientRect = () => ({ top: -5, bottom: 75 }) as DOMRect;
+  const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+  vi.stubGlobal('innerHeight', 500);
+  try {
+    const anchor = captureReadingAnchor(container, true);
+    expect(anchor).toEqual({ id: 'b', offset: -5, top: 320, left: 140 });
+    container.children[1]!.getBoundingClientRect = () => ({ top: 95, bottom: 175 }) as DOMRect;
+    restoreReadingAnchor(container, anchor, true);
+    expect(scroll).toHaveBeenCalledWith({ top: 420, left: 140, behavior: 'instant' });
+    expect(nearReadingEnd(container, true)).toBe(false);
+    container.scrollTop = 1060;
+    expect(nearReadingEnd(container, true)).toBe(true);
+  } finally {
+    scroll.mockRestore();
+    vi.unstubAllGlobals();
+  }
+});

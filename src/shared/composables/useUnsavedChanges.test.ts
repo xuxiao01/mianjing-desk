@@ -10,10 +10,13 @@ const warning =
 vi.mock('naive-ui', () => ({ useDialog: () => ({ warning }) }));
 const dirty = ref(false),
   pending = ref(false),
+  routeDirty = ref<boolean | undefined>(undefined),
   onRouteLeave = vi.fn();
 let app: App, router: Router, host: HTMLDivElement;
+let allowLeave: () => Promise<boolean>;
 beforeEach(async () => {
   dirty.value = false;
+  routeDirty.value = undefined;
   pending.value = false;
   warning.mockClear();
   onRouteLeave.mockClear();
@@ -24,7 +27,11 @@ beforeEach(async () => {
         path: '/questions/:id?',
         component: {
           setup() {
-            useUnsavedChanges(() => dirty.value, { isPending: () => pending.value, onRouteLeave });
+            ({ allowLeave } = useUnsavedChanges(() => dirty.value, {
+              isPending: () => pending.value,
+              onRouteLeave,
+              routeDirty: () => routeDirty.value ?? dirty.value,
+            }));
             return () => h('div', '详情');
           },
         },
@@ -46,6 +53,30 @@ afterEach(() => {
   host.remove();
 });
 describe('编辑未保存保护', () => {
+  it('嵌套管理的关闭只检查自身，路由和刷新保护包含外部草稿', async () => {
+    routeDirty.value = true;
+    expect(await allowLeave()).toBe(true);
+    expect(warning).not.toHaveBeenCalled();
+    const unload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(unload);
+    expect(unload.defaultPrevented).toBe(true);
+    const navigation = router.push('/other');
+    await vi.waitFor(() => expect(warning).toHaveBeenCalledOnce());
+    warning.mock.calls[0]![0].onNegativeClick();
+    await navigation;
+    expect(router.currentRoute.value.params.id).toBe('q-1');
+  });
+  it('快速重复关闭共用同一份确认，不叠加提示', async () => {
+    dirty.value = true;
+    const first = allowLeave(),
+      second = allowLeave();
+    expect(first).toBe(second);
+    expect(warning).toHaveBeenCalledOnce();
+    warning.mock.calls[0]![0].onNegativeClick();
+    expect(await first).toBe(false);
+    expect(await second).toBe(false);
+  });
+
   it('同一路由切换题目时也确认，取消保留当前位置，放弃后关闭编辑状态', async () => {
     dirty.value = true;
     const canceled = router.push('/questions/q-2');

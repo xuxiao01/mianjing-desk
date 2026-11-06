@@ -5,6 +5,7 @@ import { Check, Settings2, X } from 'lucide-vue-next';
 import type { CompanyCatalog } from '@/shared/types/domain';
 import { companyName } from '@/shared/utils/companyCatalog';
 import CompanyLabel from './CompanyLabel.vue';
+import { companyColorStyle } from '@/shared/utils/companyColors';
 
 const props = defineProps<{
   catalog: CompanyCatalog;
@@ -66,8 +67,13 @@ function toggle(id: string) {
     <div v-if="multiple && !compact" class="company-picker-selected">
       <span class="company-picker-caption">已选公司</span>
       <div class="company-tag-drafts" aria-label="当前公司标签">
-        <span v-for="id in modelValue" :key="id" class="company-tag-draft">
-          <CompanyLabel :name="companyName(catalog, id)" :catalog="catalog" />
+        <span
+          v-for="id in modelValue"
+          :key="id"
+          class="company-tag-draft"
+          :style="companyColorStyle(companyName(catalog, id), catalog)"
+        >
+          <CompanyLabel :name="companyName(catalog, id)" :catalog="catalog" bare />
           <button
             type="button"
             :aria-label="'删除公司标签' + companyName(catalog, id)"
@@ -100,6 +106,7 @@ function toggle(id: string) {
         :key="item.id"
         type="button"
         class="bubble-choice"
+        :style="companyColorStyle(item.name, catalog)"
         :aria-pressed="modelValue.includes(item.id)"
         :disabled="disabled"
         @click="toggle(item.id)"
@@ -110,7 +117,7 @@ function toggle(id: string) {
           :size="14"
           aria-hidden="true"
         />
-        <CompanyLabel :name="item.name" :catalog="catalog" /><span
+        <CompanyLabel :name="item.name" :catalog="catalog" bare /><span
           v-if="!item.enabled && !compact"
           class="picker-inactive"
           >（已停用）</span
@@ -163,10 +170,10 @@ function toggle(id: string) {
   min-height: 36px;
   max-width: 100%;
   padding: 7px 22px;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  color: var(--text);
-  background: var(--surface);
+  border: 1px solid var(--company-border);
+  border-radius: 999px;
+  color: var(--company-color);
+  background: var(--company-background);
   font: inherit;
   font-size: 14px;
   line-height: 20px;
@@ -175,14 +182,13 @@ function toggle(id: string) {
   transition: background-color 120ms;
 }
 .bubble-choice:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--company-hover-background);
 }
 .bubble-choice[aria-pressed='true'] {
-  border-color: var(--primary-line);
-  background: var(--primary-soft);
+  background: var(--company-selected-background);
 }
 .bubble-choice:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--company-focus-color);
   outline-offset: 3px;
 }
 .bubble-choice:disabled {
@@ -224,10 +230,10 @@ function toggle(id: string) {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  border: 1px solid var(--line-strong);
-  border-radius: 6px;
-  color: var(--text);
-  background: var(--surface);
+  border: 1px solid var(--company-border);
+  border-radius: 999px;
+  color: var(--company-color);
+  background: var(--company-background);
 }
 .company-tag-draft > .company-label {
   padding: 5px 10px;
@@ -235,10 +241,10 @@ function toggle(id: string) {
   overflow-wrap: anywhere;
 }
 .company-tag-draft button:hover:not(:disabled) {
-  background: var(--surface-2);
+  background: var(--company-hover-background);
 }
 .company-tag-draft button:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--company-focus-color);
   outline-offset: 2px;
 }
 .company-tag-draft button:disabled {

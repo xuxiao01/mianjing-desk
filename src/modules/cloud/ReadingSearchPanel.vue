@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { NButton, NDropdown, NInput, NSelect } from 'naive-ui';
-import { Search, SlidersHorizontal, MoreHorizontal, X, ChevronDown } from 'lucide-vue-next';
-import { categories, masteries, type QuestionFilters } from '@/shared/types/domain';
+import { NDropdown, NSelect } from 'naive-ui';
+import { Search, MoreHorizontal, X } from 'lucide-vue-next';
+import type { QuestionFilters } from '@/shared/types/domain';
+import QuestionFilterControls from './QuestionFilterControls.vue';
 import { canEdit, identity, clearSession } from '@/modules/auth/session';
 import { useRouter } from 'vue-router';
 
@@ -24,12 +25,13 @@ const emit = defineEmits<{
 }>();
 const router = useRouter();
 const open = ref(false);
-const expanded = ref(false);
 const menuOpen = ref(false);
-const selectorOpen = ref(false);
+const filtersOpen = ref(false);
+const batchOpen = ref(false);
+const selectorOpen = computed(() => filtersOpen.value || batchOpen.value);
+const controls = ref<InstanceType<typeof QuestionFilterControls>>();
 const panel = ref<HTMLElement>();
 const trigger = ref<HTMLButtonElement>();
-const input = ref<InstanceType<typeof NInput>>();
 let returnFocus: HTMLElement | null = null;
 const shortcutLabel = ref('Ctrl+F');
 const nestedEscapes = new WeakSet<KeyboardEvent>();
@@ -63,13 +65,14 @@ async function show() {
   if (!open.value) returnFocus = document.activeElement as HTMLElement | null;
   open.value = true;
   await nextTick();
-  input.value?.focus();
-  input.value?.select();
+  controls.value?.focusSearch(true);
 }
 function close(restore = true) {
   open.value = false;
   menuOpen.value = false;
-  selectorOpen.value = false;
+  filtersOpen.value = false;
+  batchOpen.value = false;
+  void controls.value?.closePopovers();
   if (restore) {
     const target =
       returnFocus?.isConnected && returnFocus !== document.body ? returnFocus : trigger.value;
@@ -124,6 +127,27 @@ function outside(event: PointerEvent) {
   // Selects and dropdowns are teleported; their selection must not dismiss this panel.
   if (target.closest('.n-base-select-menu, .n-dropdown-menu, .v-binder-follower-container')) return;
   close(false);
+}
+function filtersOverlay(value: boolean) {
+  filtersOpen.value = value;
+  if (value) {
+    menuOpen.value = false;
+    batchOpen.value = false;
+  }
+}
+function openMenu(value: boolean) {
+  if (value) {
+    void controls.value?.closePopovers();
+    batchOpen.value = false;
+  }
+  menuOpen.value = value;
+}
+function openBatch(value: boolean) {
+  if (value) {
+    void controls.value?.closePopovers();
+    menuOpen.value = false;
+  }
+  batchOpen.value = value;
 }
 const menuOptions = computed(() => [
   { label: '返回普通题库', key: 'back' },
@@ -211,7 +235,7 @@ onBeforeUnmount(() => {
           })
         "
         trigger="click"
-        @update:show="menuOpen = $event"
+        @update:show="openMenu"
         @select="action"
       >
         <button
@@ -228,103 +252,26 @@ onBeforeUnmount(() => {
         <X :size="19" />
       </button>
     </header>
-    <NInput
-      ref="input"
-      class="reading-panel-search"
-      :value="filters.search"
-      clearable
-      placeholder="搜索题目、问法、知识点…"
-      aria-label="搜索题目"
-      @update:value="emit('filter', 'search', $event)"
-    >
-      <template #prefix><Search :size="16" /></template>
-    </NInput>
-    <div class="reading-panel-categories" aria-label="题目分类">
-      <button
-        type="button"
-        :aria-pressed="!filters.category"
-        @click="emit('filter', 'category', '')"
-      >
-        全部题目
-      </button>
-      <button
-        v-for="category in categories"
-        :key="category"
-        type="button"
-        :aria-pressed="filters.category === category"
-        @click="emit('filter', 'category', category)"
-      >
-        {{ { 八股: '八股基础', 手撕: '手撕代码', 算法: '算法练习', 场景题: '场景应用' }[category] }}
-      </button>
-    </div>
-    <button
-      class="reading-expand-filters"
-      type="button"
-      :aria-expanded="expanded"
-      aria-controls="reading-extra-filters"
-      @click="expanded = !expanded"
-    >
-      <SlidersHorizontal :size="14" /><span>更多筛选</span
-      ><ChevronDown :size="14" :class="{ rotated: expanded }" />
-    </button>
-    <div v-if="expanded" id="reading-extra-filters" class="reading-extra-filters">
-      <label
-        >公司<NSelect
-          :value="filters.company || null"
-          :options="companies"
-          clearable
-          placeholder="全部公司"
-          aria-label="筛选公司"
-          @update:show="selectorOpen = $event"
-          @update:value="emit('filter', 'company', $event)"
-      /></label>
-      <label
-        >掌握程度<NSelect
-          :value="filters.mastery || null"
-          :options="masteries.map((m) => ({ label: m, value: m }))"
-          clearable
-          placeholder="全部掌握程度"
-          aria-label="筛选掌握程度"
-          @update:show="selectorOpen = $event"
-          @update:value="emit('filter', 'mastery', $event)"
-      /></label>
-      <label
-        >整理状态<NSelect
-          :value="filters.organized || null"
-          clearable
-          placeholder="全部整理状态"
-          :options="[
-            { label: '已整理', value: 'true' },
-            { label: '待整理', value: 'false' },
-          ]"
-          aria-label="筛选整理状态"
-          @update:show="selectorOpen = $event"
-          @update:value="emit('filter', 'organized', $event)"
-      /></label>
-      <label
-        >排序<NSelect
-          :value="filters.sort"
-          aria-label="排序"
-          :options="[
-            { label: '优先级排序', value: 'priority' },
-            { label: '出现次数最多', value: 'count' },
-            { label: '最近更新', value: 'updated' },
-          ]"
-          @update:show="selectorOpen = $event"
-          @update:value="emit('filter', 'sort', $event)"
-      /></label>
-      <label
-        >每批加载<NSelect
-          :value="pageSize"
-          aria-label="每批加载数量"
-          :options="[10, 20, 50].map((value) => ({ label: value + ' 条', value }))"
-          @update:show="selectorOpen = $event"
-          @update:value="emit('filter', 'pageSize', $event)"
-      /></label>
-    </div>
+    <QuestionFilterControls
+      ref="controls"
+      panel
+      :filters="filters"
+      :companies="companies"
+      @filter="(key, value) => emit('filter', key, value)"
+      @clear="emit('clear')"
+      @overlay="filtersOverlay"
+    />
     <footer>
       <span aria-live="polite">已加载 {{ loaded }}／{{ total }} 题</span>
-      <NButton text type="primary" @click="emit('clear')">清除条件</NButton>
+      <NSelect
+        :show="batchOpen"
+        :value="pageSize"
+        class="reading-batch-select"
+        aria-label="每批加载数量"
+        :options="[10, 20, 50].map((value) => ({ label: value + ' 条 / 批', value }))"
+        @update:show="openBatch"
+        @update:value="emit('filter', 'pageSize', $event)"
+      />
     </footer>
   </section>
 </template>
@@ -378,7 +325,7 @@ onBeforeUnmount(() => {
   left: 50%;
   transform: translateX(-50%);
   box-sizing: border-box;
-  width: min(480px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 32px));
   max-height: calc(100dvh - 64px);
   overflow-y: auto;
   padding: 20px;
@@ -418,63 +365,9 @@ onBeforeUnmount(() => {
   background: var(--surface-2);
   color: var(--text);
 }
-.reading-panel-search {
-  --n-height: 38px !important;
-}
-.reading-panel-categories {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 14px 0 12px;
-}
-.reading-panel-categories button {
-  min-height: 36px;
-  padding: 0 9px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--muted);
-  background: var(--surface-2);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.reading-panel-categories button[aria-pressed='true'] {
-  border-color: var(--primary-line);
-  color: var(--primary);
-  background: var(--primary-soft);
-  font-weight: 600;
-}
-.reading-expand-filters {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-.reading-expand-filters span {
-  flex: 1;
-  text-align: left;
-}
-.rotated {
-  transform: rotate(180deg);
-}
-.reading-extra-filters {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px;
-  margin: 6px 0 16px;
-}
-.reading-extra-filters label {
-  display: grid;
-  gap: 5px;
-  font-size: 12px;
-  color: var(--muted);
+.reading-batch-select {
+  width: 132px;
+  flex-shrink: 0;
 }
 .reading-search-panel footer {
   display: flex;
@@ -483,7 +376,7 @@ onBeforeUnmount(() => {
   gap: 10px;
   border-top: 1px solid var(--line);
   padding-top: 12px;
-  margin-top: 8px;
+  margin-top: 16px;
   color: var(--muted);
   font-size: 12px;
 }
@@ -494,6 +387,7 @@ button:focus-visible {
 @media (max-width: 760px) {
   .reading-search-panel {
     top: 16px;
+    max-height: calc(100dvh - 32px);
     padding: 16px;
   }
   .reading-find-trigger {
